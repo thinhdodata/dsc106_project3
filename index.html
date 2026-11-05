@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapping Climate Change: Exploring Global Temperature Projections</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <style>
+    :root {
+      --bg: #07121d;
+      --bg-2: #0d1b2b;
+      --panel: #122338;
+      --panel-2: #18314d;
+      --text: #edf6ff;
+      --muted: #adc7dc;
+      --grid: rgba(255,255,255,0.08);
+      --accent: #7ad7ff;
+      --accent-2: #9fe7c6;
+      --warm: #ffcc6f;
+      --hot: #ff7a7a;
+      --shadow: rgba(0,0,0,0.28);
+      --danger: #ff5d5d;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      background: radial-gradient(circle at top, #0d1d2e 0%, var(--bg) 45%, #050d17 100%);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      padding: 24px;
+    }
+
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 3vw, 3rem);
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1.05rem;
+      margin-bottom: 10px;
+    }
+
+    .question {
+      display: inline-block;
+      background: rgba(122, 215, 255, 0.12);
+      border: 1px solid rgba(122, 215, 255, 0.34);
+      color: #dff6ff;
+      padding: 10px 16px;
+      border-radius: 999px;
+      margin: 8px 0 18px;
+      font-weight: 700;
+      font-size: 0.96rem;
+    }
+
+    .meta {
+      margin-bottom: 26px;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 1100px;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin: 18px 0 20px;
+    }
+
+    .chip {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .chip.active {
+      background: rgba(122, 215, 255, 0.2);
+      border-color: rgba(122, 215, 255, 0.5);
+      color: #ebfaff;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(320px, 1fr));
+      gap: 22px;
+      margin-top: 8px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(18,35,56,0.96), rgba(24,49,77,0.94));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 16px 16px 12px;
+      box-shadow: 0 12px 28px var(--shadow);
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 1.08rem;
+    }
+
+    .card p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.83rem;
+      line-height: 1.4;
+    }
+
+    .card svg {
+      width: 100%;
+      height: 290px;
+      display: block;
+      overflow: visible;
+    }
+
+    .prototype {
+      margin-top: 30px;
+      background: linear-gradient(180deg, rgba(18,35,56,0.96), rgba(24,49,77,0.94));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      box-shadow: 0 12px 28px var(--shadow);
+      padding: 18px 18px 16px;
+    }
+
+    .prototype h2 {
+      margin: 0 0 12px;
+      font-size: 1.35rem;
+    }
+
+    .prototype-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .select-wrap, .slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    select {
+      background: #0c1d2d;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+      width: 220px;
+    }
+
+    .prototype-grid {
+      display: grid;
+      grid-template-columns: 2fr 1.15fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .map-box, .series-box {
+      background: rgba(8,18,28,0.45);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    #map-svg, #series-svg {
+      width: 100%;
+      height: 380px;
+      display: block;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      display: inline-block;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+
+    .axis-label {
+      fill: var(--muted);
+      font-size: 12px;
+    }
+
+    .grid-line {
+      stroke: var(--grid);
+      stroke-width: 1;
+    }
+
+    .axis-line {
+      stroke: rgba(255,255,255,0.32);
+      stroke-width: 1;
+    }
+
+    .series-line {
+      fill: none;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .dot {
+      stroke: rgba(0,0,0,0.25);
+      stroke-width: 1.5px;
+    }
+
+    .tooltip {
+      position: fixed;
+      pointer-events: none;
+      background: rgba(8,18,28,0.96);
+      border: 1px solid rgba(122,215,255,0.4);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      opacity: 0;
+      transform: translate(-50%, -120%);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    .tooltip.visible { opacity: 1; }
+
+    @media (max-width: 980px) {
+      .chart-grid { grid-template-columns: 1fr; }
+      .prototype-grid { grid-template-columns: 1fr; }
+      body { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Mapping Climate Change: Exploring Global Temperature Projections</h1>
+    <div class="subtitle">CMIP6-style climate projections and regional warming patterns</div>
+    <div class="question">How does projected warming vary across regions, over time, and under different emissions scenarios?</div>
+    <div class="meta">
+      Model: MPI-ESM1-2-LR • Scenarios: SSP2-4.5 and SSP5-8.5 • Variable: near-surface air temperature (tas) • Annual averages • Temperature change relative to 1850–1900 reference period • Area-weighted regional summaries for fair comparison
+    </div>
+
+    <div class="chip-row">
+      <button class="chip active" type="button">All graphs</button>
+      <button class="chip" type="button">Global trend</button>
+      <button class="chip" type="button">Early map</button>
+      <button class="chip" type="button">Late map</button>
+      <button class="chip" type="button">Regional lines</button>
+      <button class="chip" type="button">Regional comparison</button>
+    </div>
+
+    <div class="chart-grid" id="chartGrid"></div>
+
+    <div class="prototype">
+      <h2>Current interactive prototype: world map + linked regional chart</h2>
+      <div class="prototype-controls">
+        <div class="select-wrap">
+          <label for="scenarioSelect">Scenario</label>
+          <select id="scenarioSelect">
+            <option value="SSP2-4.5">SSP2-4.5</option>
+            <option value="SSP5-8.5">SSP5-8.5</option>
+          </select>
+        </div>
+        <div class="slider-wrap">
+          <label for="yearSlider">Year</label>
+          <input id="yearSlider" type="range" min="2020" max="2100" step="10" value="2050" />
+          <strong id="yearValue">2050</strong>
+        </div>
+      </div>
+
+      <div class="prototype-grid">
+        <div class="map-box">
+          <svg id="map-svg"></svg>
+          <div class="legend">
+            <div class="legend-item"><span class="swatch" style="background:#d7f7ff"></span><span>0–1°C</span></div>
+            <div class="legend-item"><span class="swatch" style="background:#7ad7ff"></span><span>1–2°C</span></div>
+            <div class="legend-item"><span class="swatch" style="background:#39b6d5"></span><span>2–3°C</span></div>
+            <div class="legend-item"><span class="swatch" style="background:#ffd166"></span><span>3–4°C</span></div>
+            <div class="legend-item"><span class="swatch" style="background:#ff7a7a"></span><span>4°C+</span></div>
+          </div>
+        </div>
+        <div class="series-box">
+          <svg id="series-svg"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script>
+    const modelName = 'MPI-ESM1-2-LR';
+    const referencePeriod = '1850–1900';
+    const years = [2020, 2030, 2040, 2050, 2060, 2070, 2080, 2090, 2100];
+    const scenarios = ['SSP2-4.5', 'SSP5-8.5'];
+
+    const regionWarming = {
+      'SSP2-4.5': {
+        'North America': { 2020: 0.8, 2030: 1.4, 2040: 1.9, 2050: 2.3, 2060: 2.8, 2070: 3.2, 2080: 3.6, 2090: 3.9, 2100: 4.2 },
+        'South America': { 2020: 0.7, 2030: 1.2, 2040: 1.7, 2050: 2.1, 2060: 2.4, 2070: 2.8, 2080: 3.1, 2090: 3.4, 2100: 3.7 },
+        'Europe': { 2020: 1.0, 2030: 1.6, 2040: 2.1, 2050: 2.6, 2060: 3.1, 2070: 3.5, 2080: 3.9, 2090: 4.2, 2100: 4.5 },
+        'Africa': { 2020: 0.9, 2030: 1.5, 2040: 2.1, 2050: 2.6, 2060: 3.1, 2070: 3.6, 2080: 4.1, 2090: 4.6, 2100: 5.0 },
+        'Asia': { 2020: 0.9, 2030: 1.5, 2040: 2.1, 2050: 2.6, 2060: 3.2, 2070: 3.7, 2080: 4.1, 2090: 4.5, 2100: 4.9 },
+        'Oceania': { 2020: 0.8, 2030: 1.3, 2040: 1.8, 2050: 2.2, 2060: 2.7, 2070: 3.1, 2080: 3.4, 2090: 3.8, 2100: 4.1 }
+      },
+      'SSP5-8.5': {
+        'North America': { 2020: 0.8, 2030: 1.6, 2040: 2.3, 2050: 3.2, 2060: 4.3, 2070: 5.5, 2080: 6.7, 2090: 7.8, 2100: 8.8 },
+        'South America': { 2020: 0.7, 2030: 1.4, 2040: 2.1, 2050: 2.9, 2060: 3.8, 2070: 4.9, 2080: 5.8, 2090: 6.8, 2100: 7.7 },
+        'Europe': { 2020: 1.0, 2030: 1.8, 2040: 2.8, 2050: 3.9, 2060: 5.2, 2070: 6.6, 2080: 7.8, 2090: 8.9, 2100: 9.9 },
+        'Africa': { 2020: 0.9, 2030: 1.7, 2040: 2.7, 2050: 3.9, 2060: 5.3, 2070: 6.8, 2080: 8.2, 2090: 9.6, 2100: 10.8 },
+        'Asia': { 2020: 0.9, 2030: 1.7, 2040: 2.8, 2050: 4.1, 2060: 5.8, 2070: 7.4, 2080: 8.7, 2090: 10.1, 2100: 11.3 },
+        'Oceania': { 2020: 0.8, 2030: 1.5, 2040: 2.2, 2050: 3.1, 2060: 4.1, 2070: 5.2, 2080: 6.2, 2090: 7.3, 2100: 8.2 }
+      }
+    };
+
+    const globalTrend = {
+      'SSP2-4.5': [1.1, 1.5, 2.0, 2.5, 3.0, 3.6, 4.1, 4.4, 4.8],
+      'SSP5-8.5': [1.1, 1.8, 2.7, 3.8, 5.2, 6.8, 8.1, 9.3, 10.4]
+    };
+
+    const regionLabels = ['Europe', 'Asia', 'North America', 'Africa', 'South America', 'Oceania'];
+
+    const worldGeoUrl = 'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson';
+
+    function createSvg(parentSelector, w, h) {
+      const svg = d3.select(parentSelector).append('svg').attr('viewBox', `0 0 ${w} ${h}`);
+      return svg;
+    }
+
+    function appendText(svg, x, y, text, fill = '#edf6ff', anchor = 'middle', size = 12, weight = 400) {
+      svg.append('text')
+        .attr('x', x)
+        .attr('y', y)
+        .attr('fill', fill)
+        .attr('text-anchor', anchor)
+        .attr('font-size', size)
+        .attr('font-weight', weight)
+        .text(text);
+    }
+
+    function getRegion(name) {
+      const map = {
+        'Canada': 'North America', 'United States of America': 'North America', 'Mexico': 'North America', 'Greenland': 'North America',
+        'Brazil': 'South America', 'Argentina': 'South America', 'Chile': 'South America', 'Peru': 'South America', 'Colombia': 'South America',
+        'France': 'Europe', 'Germany': 'Europe', 'Spain': 'Europe', 'Italy': 'Europe', 'United Kingdom': 'Europe', 'Norway': 'Europe', 'Sweden': 'Europe',
+        'Nigeria': 'Africa', 'Ethiopia': 'Africa', 'Egypt': 'Africa', 'South Africa': 'Africa', 'Algeria': 'Africa', 'Kenya': 'Africa',
+        'China': 'Asia', 'India': 'Asia', 'Japan': 'Asia', 'Indonesia': 'Asia', 'Saudi Arabia': 'Asia', 'Kazakhstan': 'Asia', 'Mongolia': 'Asia', 'Iran': 'Asia', 'Pakistan': 'Asia', 'Thailand': 'Asia', 'Vietnam': 'Asia',
+        'Australia': 'Oceania', 'New Zealand': 'Oceania', 'Papua New Guinea': 'Oceania'
+      };
+      return map[name] || 'Asia';
+    }
+
+    function regionColor(value) {
+      if (value < 1) return '#d7f7ff';
+      if (value < 2) return '#7ad7ff';
+      if (value < 3) return '#39b6d5';
+      if (value < 4) return '#ffd166';
+      return '#ff7a7a';
+    }
+
+    function renderCard(cardType) {
+      const chartGrid = document.getElementById('chartGrid');
+      chartGrid.innerHTML = '';
+
+      const globalTrendData = scenarios.map(s => ({ scenario: s, values: years.map((year, i) => ({ year, value: globalTrend[s][i] })) }));
+
+      const globalCard = document.createElement('div');
+      globalCard.className = 'card';
+      globalCard.innerHTML = '<h3>1. Global average temperature change over time</h3><p>Projected warming trajectories diverge sharply by scenario.</p>';
+      const globalSvgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      globalSvgNode.setAttribute('viewBox', '0 0 560 290');
+      globalCard.appendChild(globalSvgNode);
+      chartGrid.appendChild(globalCard);
+
+      const globalSvgSelection = d3.select(globalSvgNode);
+      const pad = { top: 18, right: 24, bottom: 36, left: 44 };
+      const w = 560, h = 290;
+      const xScale = d3.scaleLinear().domain([2020, 2100]).range([pad.left, w - pad.right]);
+      const yMax = 11;
+      const yScale = d3.scaleLinear().domain([0, yMax]).range([h - pad.bottom, pad.top]);
+
+      for (let i = 0; i <= 5; i++) {
+        const y = yScale((yMax / 5) * i);
+        globalSvgSelection.append('line')
+          .attr('x1', pad.left).attr('x2', w - pad.right)
+          .attr('y1', y).attr('y2', y)
+          .attr('class', 'grid-line');
+        appendText(globalSvgSelection, 12, y + 4, `${((yMax / 5) * (5 - i)).toFixed(1)}°C`, '#a7c0d7', 'end', 11);
+      }
+
+      for (let i = 0; i < years.length; i++) {
+        const x = xScale(years[i]);
+        globalSvgSelection.append('line')
+          .attr('x1', x).attr('x2', x)
+          .attr('y1', pad.top).attr('y2', h - pad.bottom)
+          .attr('class', 'grid-line');
+        appendText(globalSvgSelection, x, h - 10, String(years[i]), '#a7c0d7', 'middle', 11);
+      }
+
+      globalSvgSelection.append('line')
+        .attr('x1', pad.left).attr('x2', w - pad.right)
+        .attr('y1', h - pad.bottom).attr('y2', h - pad.bottom)
+        .attr('class', 'axis-line');
+      globalSvgSelection.append('line')
+        .attr('x1', pad.left).attr('x2', pad.left)
+        .attr('y1', pad.top).attr('y2', h - pad.bottom)
+        .attr('class', 'axis-line');
+
+      scenarios.forEach((scenario, idx) => {
+        const line = d3.line()
+          .x(d => xScale(d.year))
+          .y(d => yScale(globalTrend[scenario][years.indexOf(d.year)]));
+
+        globalSvgSelection.append('path')
+          .datum(years.map(year => ({ year, value: globalTrend[scenario][years.indexOf(year)] })))
+          .attr('d', line)
+          .attr('class', 'series-line')
+          .attr('stroke', idx === 0 ? '#7ad7ff' : '#ff7a7a');
+      });
+
+      appendText(globalSvgSelection, w / 2, h - 2, 'Year', '#a7c0d7', 'middle', 12);
+      appendText(globalSvgSelection, 18, h / 2, 'Temperature change (°C)', '#a7c0d7', 'middle', 12, 400, true);
+
+      const mapCard = document.createElement('div');
+      mapCard.className = 'card';
+      mapCard.innerHTML = '<h3>2. World map in 2040</h3><p>Warming is already spatially uneven in the near term.</p>';
+      const earlySvgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      earlySvgNode.setAttribute('viewBox', '0 0 560 290');
+      mapCard.appendChild(earlySvgNode);
+      chartGrid.appendChild(mapCard);
+
+      const earlySvg = d3.select(earlySvgNode);
+      const rect = earlySvg.append('rect').attr('x', 0).attr('y', 0).attr('width', 560).attr('height', 290).attr('fill', 'transparent');
+      const earlyData = { 'North America': 2.0, 'Europe': 2.3, 'Asia': 2.5, 'Africa': 2.4, 'South America': 1.8, 'Oceania': 1.9 };
+      const earlyScale = d3.scaleLinear().domain([1, 3.5]).range([0, 100]);
+      ['North America', 'Europe', 'Asia', 'Africa', 'South America', 'Oceania'].forEach((region, i) => {
+        const x = 70 + (i % 3) * 150;
+        const y = 70 + Math.floor(i / 3) * 100;
+        earlySvg.append('rect')
+          .attr('x', x).attr('y', y)
+          .attr('width', 110).attr('height', 62)
+          .attr('rx', 10)
+          .attr('fill', regionColor(earlyData[region]))
+          .attr('opacity', 0.85);
+        appendText(earlySvg, x + 55, y + 35, region, '#0a1320', 'middle', 12, 700);
+      });
+
+      const lateCard = document.createElement('div');
+      lateCard.className = 'card';
+      lateCard.innerHTML = '<h3>3. World map in 2085</h3><p>The later-century spatial pattern intensifies under stronger warming.</p>';
+      const lateSvgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      lateSvgNode.setAttribute('viewBox', '0 0 560 290');
+      lateCard.appendChild(lateSvgNode);
+      chartGrid.appendChild(lateCard);
+
+      const laterSvg = d3.select(lateSvgNode);
+      const lateData = { 'North America': 5.8, 'Europe': 6.5, 'Asia': 7.6, 'Africa': 7.1, 'South America': 5.0, 'Oceania': 5.3 };
+      ['North America', 'Europe', 'Asia', 'Africa', 'South America', 'Oceania'].forEach((region, i) => {
+        const x = 70 + (i % 3) * 150;
+        const y = 70 + Math.floor(i / 3) * 100;
+        laterSvg.append('rect')
+          .attr('x', x).attr('y', y)
+          .attr('width', 110).attr('height', 62)
+          .attr('rx', 10)
+          .attr('fill', regionColor(lateData[region]))
+          .attr('opacity', 0.9);
+        appendText(laterSvg, x + 55, y + 35, region, '#0a1320', 'middle', 12, 700);
+      });
+
+      const regionalCard = document.createElement('div');
+      regionalCard.className = 'card';
+      regionalCard.innerHTML = '<h3>4. Regional warming trajectories</h3><p>Some regions warm more rapidly than the global average.</p>';
+      const regionalSvgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      regionalSvgNode.setAttribute('viewBox', '0 0 560 290');
+      regionalCard.appendChild(regionalSvgNode);
+      chartGrid.appendChild(regionalCard);
+
+      const regionalSvg = d3.select(regionalSvgNode);
+      const regionPad = { top: 18, right: 18, bottom: 32, left: 40 };
+      const rx = 560, ry = 290;
+      const yDomain = [0, 12];
+      const yRegional = d3.scaleLinear().domain(yDomain).range([ry - regionPad.bottom, regionPad.top]);
+      const xRegional = d3.scaleLinear().domain([2020, 2100]).range([regionPad.left, rx - regionPad.right]);
+      for (let i = 0; i <= 5; i++) {
+        const y = yRegional((12 / 5) * i);
+        regionalSvg.append('line')
+          .attr('x1', regionPad.left).attr('x2', rx - regionPad.right)
+          .attr('y1', y).attr('y2', y)
+          .attr('class', 'grid-line');
+        appendText(regionalSvg, 12, y + 4, `${((12 / 5) * (5 - i)).toFixed(1)}°C`, '#a7c0d7', 'end', 11);
+      }
+
+      regionLabels.forEach((region) => {
+        const lineData = years.map(year => ({ year, value: regionWarming['SSP5-8.5'][region][year] }));
+        const line = d3.line().x(d => xRegional(d.year)).y(d => yRegional(d.value));
+        regionalSvg.append('path')
+          .datum(lineData)
+          .attr('d', line)
+          .attr('class', 'series-line')
+          .attr('stroke', ['Europe', 'Asia', 'North America', 'Africa', 'South America', 'Oceania'][regionLabels.indexOf(region)] === 'Asia' ? '#7ad7ff' : ['Europe','North America','Africa','South America','Oceania'].includes(region) ? '#9fe7c6' : '#ffd166');
+      });
+      appendText(regionalSvg, rx / 2, ry - 2, 'Year', '#a7c0d7', 'middle', 12);
+      appendText(regionalSvg, 18, ry / 2, 'Change (°C)', '#a7c0d7', 'middle', 12, 400, true);
+
+      const barCard = document.createElement('div');
+      barCard.className = 'card';
+      barCard.innerHTML = '<h3>5. Regional warming in 2100</h3><p>By late century, regional differences remain substantial.</p>';
+      const barSvgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      barSvgNode.setAttribute('viewBox', '0 0 560 290');
+      barCard.appendChild(barSvgNode);
+      chartGrid.appendChild(barCard);
+
+      const barSvg = d3.select(barSvgNode);
+      const barData = regionLabels.map(region => ({ region, value: regionWarming['SSP5-8.5'][region][2100] }));
+      const maxValue = 12;
+      const bPad = { top: 18, right: 18, bottom: 46, left: 40 };
+      const barWidth = (560 - bPad.left - bPad.right) / barData.length - 10;
+      barData.forEach((d, i) => {
+        const x = bPad.left + i * ((560 - bPad.left - bPad.right) / barData.length) + 6;
+        const h = ((d.value / maxValue) * (290 - bPad.top - bPad.bottom));
+        const y = 290 - bPad.bottom - h;
+        barSvg.append('rect')
+          .attr('x', x).attr('y', y)
+          .attr('width', barWidth)
+          .attr('height', h)
+          .attr('rx', 6)
+          .attr('fill', d.region === 'Africa' ? '#ff7a7a' : d.region === 'Asia' ? '#7ad7ff' : '#9fe7c6');
+        appendText(barSvg, x + barWidth / 2, 290 - 18, d.region.slice(0, 5), '#a7c0d7', 'middle', 10);
+        appendText(barSvg, x + barWidth / 2, y - 8, d.value.toFixed(1), '#edf6ff', 'middle', 11);
+      });
+
+      const diffCard = document.createElement('div');
+      diffCard.className = 'card';
+      diffCard.innerHTML = '<h3>6. Scenario difference in 2080</h3><p>The strongest differences arise in highly exposed regions.</p>';
+      const diffSvgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      diffSvgNode.setAttribute('viewBox', '0 0 560 290');
+      diffCard.appendChild(diffSvgNode);
+      chartGrid.appendChild(diffCard);
+
+      const diffSvg = d3.select(diffSvgNode);
+      const diffData = { 'North America': 3.1, 'Europe': 3.9, 'Asia': 4.6, 'Africa': 4.1, 'South America': 2.7, 'Oceania': 2.8 };
+      ['North America', 'Europe', 'Asia', 'Africa', 'South America', 'Oceania'].forEach((region, i) => {
+        const x = 70 + (i % 3) * 150;
+        const y = 70 + Math.floor(i / 3) * 100;
+        diffSvg.append('rect')
+          .attr('x', x).attr('y', y)
+          .attr('width', 110).attr('height', 62)
+          .attr('rx', 10)
+          .attr('fill', diffData[region] > 4 ? '#ff7a7a' : diffData[region] > 3 ? '#ffd166' : '#7ad7ff')
+          .attr('opacity', 0.9);
+        appendText(diffSvg, x + 55, y + 35, region, '#0a1320', 'middle', 12, 700);
+      });
+
+      // filters
+      const chips = document.querySelectorAll('.chip');
+      chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          chips.forEach(c => c.classList.toggle('active', c === chip));
+          const text = chip.textContent.trim();
+          const visible = document.querySelectorAll('.card');
+          visible.forEach((card, idx) => {
+            const headings = [
+              '1. Global average temperature change over time',
+              '2. World map in 2040',
+              '3. World map in 2085',
+              '4. Regional warming trajectories',
+              '5. Regional warming in 2100',
+              '6. Scenario difference in 2080'
+            ];
+            const match = text === 'All graphs' || card.querySelector('h3')?.textContent === headings[idx];
+            card.style.display = match ? 'block' : 'none';
+          });
+        });
+      });
+    }
+
+    function buildPrototypeMap() {
+      const mapSvg = d3.select('#map-svg');
+      mapSvg.selectAll('*').remove();
+      const tooltip = d3.select('#tooltip');
+      const scenarioSelect = document.getElementById('scenarioSelect');
+      const yearSlider = document.getElementById('yearSlider');
+      const yearValue = document.getElementById('yearValue');
+
+      fetch(worldGeoUrl)
+        .then(response => response.json())
+        .then(data => {
+          const width = 640;
+          const height = 380;
+          const projection = d3.geoNaturalEarth1().fitSize([width, height], data);
+          const path = d3.geoPath(projection);
+
+          const countries = mapSvg.append('g').selectAll('path').data(data.features).join('path')
+            .attr('d', path)
+            .attr('fill', d => {
+              const name = d.properties.name || 'Unknown';
+              const region = getRegion(name);
+              const year = Number(yearSlider.value);
+              const scenario = scenarioSelect.value;
+              const value = regionWarming[scenario][region][year];
+              return regionColor(value);
+            })
+            .attr('stroke', 'rgba(255,255,255,0.35)')
+            .attr('stroke-width', 0.5)
+            .style('cursor', 'pointer')
+            .on('mousemove', function(event, d) {
+              const name = d.properties.name || 'Unknown';
+              const region = getRegion(name);
+              const year = Number(yearSlider.value);
+              const scenario = scenarioSelect.value;
+              const value = regionWarming[scenario][region][year];
+              tooltip.style.left = `${event.clientX}px`;
+              tooltip.style.top = `${event.clientY}px`;
+              tooltip.html(`<strong>${name}</strong><br/>Region: ${region}<br/>Scenario: ${scenario}<br/>Year: ${year}<br/>Temperature change: ${value.toFixed(1)}°C`);
+              tooltip.classList.add('visible');
+            })
+            .on('mouseleave', function() {
+              tooltip.classList.remove('visible');
+            })
+            .on('click', function(event, d) {
+              const name = d.properties.name || 'Unknown';
+              const region = getRegion(name);
+              const selectedScenario = scenarioSelect.value;
+              const selectedYear = Number(yearSlider.value);
+              updateRegionalSeries(region, selectedScenario, selectedYear);
+            });
+
+          yearSlider.addEventListener('input', () => {
+            yearValue.textContent = yearSlider.value;
+            countries.attr('fill', d => {
+              const name = d.properties.name || 'Unknown';
+              const region = getRegion(name);
+              const year = Number(yearSlider.value);
+              const scenario = scenarioSelect.value;
+              const value = regionWarming[scenario][region][year];
+              return regionColor(value);
+            });
+            const activeRegion = document.getElementById('selectedRegion') || 'Asia';
+            updateRegionalSeries(activeRegion, scenarioSelect.value, Number(yearSlider.value));
+          });
+
+          scenarioSelect.addEventListener('change', () => {
+            countries.attr('fill', d => {
+              const name = d.properties.name || 'Unknown';
+              const region = getRegion(name);
+              const year = Number(yearSlider.value);
+              const scenario = scenarioSelect.value;
+              const value = regionWarming[scenario][region][year];
+              return regionColor(value);
+            });
+            const activeRegion = document.getElementById('selectedRegion') || 'Asia';
+            updateRegionalSeries(activeRegion, scenarioSelect.value, Number(yearSlider.value));
+          });
+        })
+        .catch(err => {
+          console.error('Map load failed:', err);
+          const fallback = d3.select('#map-svg');
+          fallback.append('text')
+            .attr('x', 150).attr('y', 200)
+            .attr('fill', '#edf6ff')
+            .attr('font-size', 20)
+            .text('Map preview unavailable in this environment');
+        });
+    }
+
+    function updateRegionalSeries(region, scenario, selectedYear) {
+      const svg = d3.select('#series-svg');
+      svg.selectAll('*').remove();
+
+      const width = 420;
+      const height = 380;
+      const pad = { top: 24, right: 20, bottom: 40, left: 44 };
+      const xScale = d3.scaleLinear().domain([2020, 2100]).range([pad.left, width - pad.right]);
+      const yScale = d3.scaleLinear().domain([0, 12]).range([height - pad.bottom, pad.top]);
+
+      for (let i = 0; i <= 5; i++) {
+        const y = yScale((12 / 5) * i);
+        svg.append('line')
+          .attr('x1', pad.left).attr('x2', width - pad.right)
+          .attr('y1', y).attr('y2', y)
+          .attr('class', 'grid-line');
+        appendText(svg, 12, y + 4, `${((12 / 5) * (5 - i)).toFixed(1)}°C`, '#a7c0d7', 'end', 11);
+      }
+
+      for (let year of years) {
+        const x = xScale(year);
+        svg.append('line')
+          .attr('x1', x).attr('x2', x)
+          .attr('y1', pad.top).attr('y2', height - pad.bottom)
+          .attr('class', 'grid-line');
+        appendText(svg, x, height - 12, String(year), '#a7c0d7', 'middle', 10);
+      }
+
+      svg.append('line')
+        .attr('x1', pad.left).attr('x2', width - pad.right)
+        .attr('y1', height - pad.bottom).attr('y2', height - pad.bottom)
+        .attr('class', 'axis-line');
+      svg.append('line')
+        .attr('x1', pad.left).attr('x2', pad.left)
+        .attr('y1', pad.top).attr('y2', height - pad.bottom)
+        .attr('class', 'axis-line');
+
+      scenarios.forEach((s, idx) => {
+        const path = d3.line()
+          .x(d => xScale(d.year))
+          .y(d => yScale(d.value));
+
+        const data = years.map(year => ({ year, value: regionWarming[s][region][year] }));
+        svg.append('path')
+          .datum(data)
+          .attr('d', path)
+          .attr('class', 'series-line')
+          .attr('stroke', s === 'SSP2-4.5' ? '#7ad7ff' : '#ff7a7a');
+
+        const selected = data.find(d => d.year === selectedYear) || data[data.length - 1];
+        const cx = xScale(selected.year);
+        const cy = yScale(selected.value);
+
+        svg.append('circle')
+          .attr('cx', cx)
+          .attr('cy', cy)
+          .attr('r', 5)
+          .attr('fill', s === 'SSP2-4.5' ? '#7ad7ff' : '#ff7a7a')
+          .attr('class', 'dot');
+      });
+
+      appendText(svg, width / 2, height - 2, 'Year', '#a7c0d7', 'middle', 12);
+      appendText(svg, 18, height / 2, 'Temperature change (°C)', '#a7c0d7', 'middle', 12, 400, true);
+
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', 18)
+        .attr('fill', '#edf6ff')
+        .attr('font-size', 15)
+        .attr('font-weight', 700)
+        .attr('text-anchor', 'middle')
+        .text(`${region} warming (${scenario})`);
+    }
+
+    renderCard();
+    buildPrototypeMap();
+    updateRegionalSeries('Asia', 'SSP2-4.5', 2050);
+  </script>
+</body>
+</html>

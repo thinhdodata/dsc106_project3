@@ -114,7 +114,6 @@ h1 em{font-weight:400;font-style:normal;color:#577277}
 .writeup h3{font-size:16px;margin:21px 0 6px}
 .writeup h3:first-child{margin-top:0}
 .writeup p{font-size:13px;line-height:1.79;color:#4f5d63}
-.writeup .team-edit{border-left:3px solid #d9a15d;background:#faf4e9;padding:11px 14px}
 code{font-size:.95em;background:#eff1ef;padding:1px 3px}
 .site-footer{border-top:1px solid var(--fine);padding-top:25px;padding-bottom:45px;display:flex;justify-content:space-between;gap:26px;font-size:11px;color:var(--muted)}
 .site-footer p{margin:0}
